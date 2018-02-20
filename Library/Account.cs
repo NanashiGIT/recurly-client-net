@@ -12,7 +12,6 @@ namespace Recurly
     /// </summary>
     public class Account : RecurlyEntity
     {
-
         // The currently valid account states
         // Corrected to allow multiple states, per https://dev.recurly.com/docs/get-account
         [Flags]
@@ -27,6 +26,7 @@ namespace Recurly
         /// Account Code or unique ID for the account in Recurly
         /// </summary>
         public string AccountCode { get; private set; }
+
         public AccountState State { get; private set; }
         public string Username { get; set; }
         public string Email { get; set; }
@@ -106,6 +106,7 @@ namespace Recurly
             get { return _shippingAddresses ?? (_shippingAddresses = new List<ShippingAddress>()); }
             set { _shippingAddresses = value; }
         }
+
         private List<ShippingAddress> _shippingAddresses;
 
         internal const string UrlPrefix = "/accounts/";
@@ -227,13 +228,17 @@ namespace Recurly
         /// <param name="state">State of the Adjustments to retrieve. Optional, default: Any.</param>
         /// <returns></returns>
         public RecurlyList<Adjustment> GetAdjustments(Adjustment.AdjustmentType type = Adjustment.AdjustmentType.All,
-            Adjustment.AdjustmentState state = Adjustment.AdjustmentState.Any)
+            Adjustment.AdjustmentState state = Adjustment.AdjustmentState.Any, DateTime beginTime = new DateTime(), int perPage = 50)
         {
+            beginTime = DateTime.SpecifyKind(beginTime, DateTimeKind.Utc);
+
             var adjustments = new AdjustmentList();
             var statusCode = Client.Instance.PerformRequest(Client.HttpRequestMethod.Get,
                 UrlPrefix + Uri.EscapeDataString(AccountCode) + "/adjustments/"
                 + Build.QueryStringWith(Adjustment.AdjustmentState.Any == state ? "" : "state=" + state.ToString().EnumNameToTransportCase())
                 .AndWith(Adjustment.AdjustmentType.All == type ? "" : "type=" + type.ToString().EnumNameToTransportCase())
+                .AndWith("per_Page=" + perPage)
+                .AndWith(beginTime == DateTime.MinValue ? "" : "begin_time=" + beginTime.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ssK"))
                 , adjustments.ReadXmlList);
 
             return statusCode == HttpStatusCode.NotFound ? null : adjustments;
@@ -506,6 +511,7 @@ namespace Recurly
 
             xmlWriter.WriteEndElement(); // End: account
         }
+
         /// <summary>
         /// This serializer is used for redeeming a gift card on
         /// this account.
@@ -518,7 +524,7 @@ namespace Recurly
             xmlWriter.WriteEndElement(); // End: recipient_account
         }
 
-        #endregion
+        #endregion Read and Write XML documents
 
         #region Object Overrides
 
@@ -543,7 +549,7 @@ namespace Recurly
             return AccountCode?.GetHashCode() ?? 0;
         }
 
-        #endregion
+        #endregion Object Overrides
     }
 
     public sealed class Accounts
